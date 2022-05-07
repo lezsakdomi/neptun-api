@@ -1,9 +1,7 @@
 import * as Neptun from './index.ts'
-import {Institution, KnownLanguage} from './index.ts'
-import {Curriculum} from './lib/session.ts'
 
 // There is a central list of all Neptun deployments
-const institutions = await Neptun.listInstitutions() as Institution[]
+const institutions = await Neptun.listInstitutions() as Neptun.Institution[]
 // Not all of them has a mobile interface. We could've also filtered based on university name
 const elte = institutions.find(inst => inst.server?.url.toString().match('elte.hu'))
 
@@ -24,7 +22,7 @@ if (!neptunCode || !password) {
 
 // You can iterate over Institution.prototype.languages, or hardcode Hungarian
 const session = await elte.login(neptunCode, password, {
-    language: KnownLanguage.fromCode('hu'),
+    language: Neptun.KnownLanguage.fromCode('hu'),
 })
 
 // Neptun has different lists for terms based on usage
