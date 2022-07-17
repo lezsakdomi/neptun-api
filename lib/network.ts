@@ -14,6 +14,7 @@ export class APIEndpoint {
     }
 
     async pureRequest(url: string, body: any = {}, options = {}): Promise<any> {
+        console.log(">", url, body, options)
         const res = await fetch(this.generateFullUrl(url), {
             method: 'POST',
             body: JSON.stringify(body),
@@ -26,7 +27,11 @@ export class APIEndpoint {
                     ], ([] as string[])).join("; ")
                     : "",
             },
+        }).catch(e => {
+            console.error(e)
+            throw e
         })
+        console.log("<", res)
 
         const cookieHeader = res.headers.get('Set-Cookie')
         if (cookieHeader) {

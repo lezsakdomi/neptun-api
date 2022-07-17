@@ -1,0 +1,44 @@
+{
+  "main": "dist/src",
+  "private": true,
+  "scripts": {
+    "test": "npm run build && npm run lint",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src",
+    "lint:fix": "eslint --fix --ext .js,.jsx,.ts,.tsx src",
+    "build:src": "babel --extensions .ts,.tsx --compact false src -d dist/src",
+    "build:lib": "babel --extensions .ts,.tsx --compact false lib -d dist/lib",
+    "build:lib-es6": "cross-env DIST_TYPE=es6 babel --extensions .ts,.tsx --compact false lib -d dist/lib-es6",
+    "build:index": "babel --extensions .ts,.tsx --compact false lib/index.ts -d dist",
+    "build": "npm run build:src && npm run build:lib && npm run build:index",
+    "watch:src": "babel --watch --extensions .ts,.tsx --compact false src -d dist/src",
+    "watch:lib": "babel --watch --extensions .ts,.tsx --compact false lib -d dist/lib",
+    "watch:lib-es6": "cross-env DIST_TYPE=es6 babel --watch --extensions .ts,.tsx --compact false lib -d dist/lib-es6",
+    "watch:index": "babel --watch --extensions .ts,.tsx --compact false lib/index.ts -d dist",
+    "watch": "concurrently npm:watch:*",
+    "build-ts": "tsc -p .",
+    "watch-ts": "tsc -p . -w --preserveWatchOutput --inlineSourceMap",
+    "start": "tabris serve -a -w"
+  },
+  "dependencies": {
+    "core-js": "^3.22.5",
+    "tabris": "~3.8.0",
+    "tabris-decorators": "^3.8.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.17.10",
+    "@babel/core": "^7.17.10",
+    "@babel/plugin-transform-async-to-generator": "^7.16.8",
+    "@babel/plugin-transform-modules-commonjs": "^7.17.9",
+    "@babel/preset-env": "^7.17.10",
+    "@babel/preset-react": "^7.16.7",
+    "@babel/preset-typescript": "^7.16.7",
+    "@typescript-eslint/eslint-plugin": "^5.22.0",
+    "@typescript-eslint/parser": "^5.22.0",
+    "babel-plugin-add-import-extension": "^1.6.0",
+    "concurrently": "^7.2.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.15.0",
+    "eslint-plugin-react": "^7.29.4",
+    "typescript": "~3.8.3"
+  }
+}
