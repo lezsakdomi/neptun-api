@@ -5,6 +5,7 @@ export class APIEndpoint {
     constructor(url: URL, options = {}) {
         this.url = url
         this.#cookies = {}
+        this.options = options
     }
 
     generateFullUrl(path: string): string {
@@ -15,7 +16,16 @@ export class APIEndpoint {
 
     async pureRequest(url: string, body: any = {}, options = {}): Promise<any> {
         console.log(">", url, body, options)
-        const res = await fetch(this.generateFullUrl(url), {
+
+        url = this.generateFullUrl(url);
+
+        const corsProxy = options.corsProxy || this.options.corsProxy;
+
+        if (corsProxy) {
+            url = corsProxy + url;
+        }
+
+        const res = await fetch(url, {
             method: 'POST',
             body: JSON.stringify(body),
             headers: {
@@ -27,6 +37,8 @@ export class APIEndpoint {
                     ], ([] as string[])).join("; ")
                     : "",
             },
+            ...this.options.fetchInit,
+            ...options.fetchInit,
         }).catch(e => {
             console.error(e)
             throw e
@@ -175,7 +187,7 @@ export class PaginatedRequest<ItemType,
             ...body,
             CurrentPage: 0,
         }
-        this.#options = {}
+        this.#options = {...options}
     }
 
     readonly #responses: unknown[] = []

@@ -2,8 +2,8 @@ import {KnownLanguage, Language} from './language.ts'
 import {APIEndpoint, IPaginatedRequest, EmptyPagination} from './network.ts'
 import {LeafTermType, RegisterTerm, TakenTerm, Term, TermWithValue} from './term.ts'
 
-export async function listInstitutions() {
-    const server = new APIEndpoint(new URL("https://mobilecloudservice.sdainformatika.hu/MobileServiceLib/MobileCloudService.svc"))
+export async function listInstitutions(options = {}) {
+    const server = new APIEndpoint(new URL("https://mobilecloudservice.sdainformatika.hu/MobileServiceLib/MobileCloudService.svc"), options)
 
     const resp = await server.pureRequest("GetAllNeptunMobileUrls", {}) as {
         Languages: string,
@@ -151,7 +151,7 @@ export class Session {
     }
 
     async logout(options = {}) {
-        await this.#request('SignOut')
+        await this.#request('SignOut', {}, options)
     }
 
     async getTrainings({} = {}) {
@@ -240,7 +240,7 @@ export class Session {
                         }[relevance],
                         TermID: term.id,
                     },
-                })
+                }, options)
             } else {
                 throw new ArgumentError("Unexpected term type, expecting RegisterTerm when listing unrelated courses or from the curriculum")
             }
@@ -277,7 +277,7 @@ export class Session {
         )), options = {}): Promise<InstanceType<T>[]> {
         const res = await this.#request(klass.apiPath, {
             Terms: typeof klass.termsForEnumValue === 'number' ? klass.termsForEnumValue : undefined,
-        })
+        }, options)
         // @ts-ignore
         const list = res[klass.itemKey]
         // @ts-ignore
