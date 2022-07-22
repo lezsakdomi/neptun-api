@@ -1,4 +1,4 @@
-import * as Neptun from './index.ts'
+import * as Neptun from './lib/index.ts'
 
 // There is a central list of all Neptun deployments
 const institutions = await Neptun.listInstitutions() as Neptun.Institution[]
