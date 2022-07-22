@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neptun API test</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel" data-type="module">
+		import * as Neptun from './dist/lib-es6/index.js'
+		const networkOptions = {
+			corsProxy: "https://tantervihalo-visualizer-proxy.herokuapp.com/",
+			fetchInit: {
+				mode: 'cors',
+			},
+		}
+		window.Neptun = Neptun
+		window.networkOptions = networkOptions
+
+        // heat up the Heroku dyno...
+        fetch(networkOptions.corsProxy);
+
+		class App extends React.Component {
+			constructor(props) {
+				super(props)
+
+                const params = new URLSearchParams(location.search)
+
+                this.state = {
+					institutions: undefined,
+                    username: "", password: "",
+                    omCode: params.get('institution') || "",
+                    languageCode: params.get('lang') || "hu",
+                    loggedIn: false,
+                    loggedOut: true,
+				}
+            }
+
+			componentDidMount() {
+				this.loadInstitutions()
+			}
+
+			async loadInstitutions() {
+				const institutions = await Neptun.listInstitutions(networkOptions);
+
+				this.setState({institutions})
+			}
+
+			get institutionOptions() {
+				if (this.state.institutions) {
+					return this.state.institutions.map(institution => (
+						<option
+                            key={institution.omCode}
+                            disabled={!institution.isCompatible}
+                            value={institution.omCode}
+                        >
+                            {institution.name}
+						</option>
+					)).concat([
+						<option key="" value="" disabled>Select institution</option>
+                    ])
+                } else {
+                    return (<option value="" disabled>Loading...</option>)
+                }
+            }
+
+			get institution() {
+				return this.state.omCode && this.state.institutions &&
+                    this.state.institutions.find(inst => inst.omCode === this.state.omCode)
+            }
+
+			get username() {
+				return this.state.username;
+            }
+
+			get password() {
+				return this.state.password;
+            }
+
+			get language() {
+				return Neptun.KnownLanguage.fromCode(this.state.languageCode)
+            }
+
+			async login() {
+                this.setState({loggedOut: false});
+				this.session = await this.institution.login(this.username, this.password, {
+					language: this.language,
+                    ...networkOptions,
+                });
+				this.setState({loggedIn: true});
+            }
+
+			async logout() {
+				await this.session.logout();
+				this.setState({loggedOut: true})
+            }
+
+			render() {
+				return [
+					<form key="loginForm" onSubmit={event => {
+						this.login()
+						event.preventDefault()
+					}}>
+                        <div className="row">
+                            <select
+                                name="institution"
+								value={this.state.institutions ? this.state.omCode : ""}
+								disabled={this.state.loggedIn || !this.state.institutions}
+                                onChange={evt => {
+                                    const omCode = evt.target.value
+                                    this.setState({omCode})
+
+                                    const params = new URLSearchParams(location.search)
+                                    params.set('institution', omCode)
+                                    history.replaceState(history.state, document.title, `?${params}`)
+                                }}
+                            >
+                                {this.institutionOptions}
+                            </select>
+                            <select
+                                value={this.state.languageCode}
+								disabled={this.state.loggedIn}
+                                onChange={event => {
+                                    const languageCode = event.target.value
+                                    this.setState({languageCode})
+
+                                    const params = new URLSearchParams(location.search)
+                                    params.set('lang', languageCode)
+                                    history.replaceState(history.state, document.title, `?${params}`)
+                                }}
+                            >
+                                <option value="hu">Hungarian</option>
+                                <option value="en">English</option>
+                                <option value="de">German</option>
+                            </select>
+                        </div>
+						<input type="text" name="username" placeholder="Neptun code"
+                               autoComplete="username"
+							   disabled={this.state.loggedIn}
+                               onInput={event => this.setState({username: event.target.value})}
+                        />
+						<input type="password" name="password" placeholder="Password"
+                               autoComplete="current-password"
+							   disabled={this.state.loggedIn}
+							   onInput={event => this.setState({password: event.target.value})}
+                        />
+						{this.state.loggedIn
+                            ? <button onClick={event => {
+								this.logout();
+								event.preventDefault();
+                            }}>Log out</button>
+                            : <button disabled={!this.institution || !this.state.loggedOut}>Login</button>
+						}
+					</form>
+				].concat(this.state.loggedIn && [
+					<Session key="session" session={this.session}/>
+                ])
+			}
+		}
+
+		class Session extends React.Component {
+			constructor(props) {
+				super(props)
+				const params = new URLSearchParams(location.search)
+                this.state = {
+					terms: undefined,
+                    term: params.get('term') || "",
+                    subjects: undefined,
+					loadingSubjects: false,
+                    tantervihalo: undefined,
+                }
+				this.moreButtonRef = React.createRef()
+
+                this.scrollEventListener = (event) => {
+					if (this.moreButtonRef.current) {
+						const bb = this.moreButtonRef.current.getBoundingClientRect();
+						if (window.innerHeight > bb.top) {
+							if (!this.state.loadingSubjects) {
+								this.loadMore();
+                            }
+                        }
+                    }
+                }
+			}
+
+			componentDidMount() {
+				this.loadTerms();
+				this.loadTantervihalo();
+				window.addEventListener('scroll', this.scrollEventListener);
+            }
+
+			componentWillUnmount() {
+				window.removeEventListener('scroll', this.scrollEventListener);
+            }
+
+			get session() {
+				return this.props.session;
+            }
+
+			async loadTerms() {
+				const terms = await this.session.getTerms(Neptun.termTypes.RegisterSubjectTerm);
+				this.setState({terms})
+                if (!this.state.term && terms.length) {
+					this.setState({term: terms[0].name});
+                }
+            }
+
+			async loadTantervihalo() {
+				// dynamic import to avoid errors
+				const {TantervihaloLoader} = await import('https://lezsakdomi.github.io/tantervihalo-visualizer-backend/api.js');
+
+				let url = "https://lezsakdomi.web.elte.hu/tantervi-halo-visualizer/assets/tantervihalo-kezzel-keszult.xlsx";
+				if (location.host !== (new URL(url)).host) {
+					url = networkOptions.corsProxy + encodeURI(url);
+				}
+				const bytes = await fetch(url, networkOptions.fetchInit).then(res => res.blob());
+
+				const loader = new TantervihaloLoader(bytes);
+
+				const tantervihalo = await Promise.race([
+					new Promise(resolve =>
+						loader.addEventListener('tantervihaloFound', ({detail: {promise}}) => resolve(promise))),
+					// loader.loadedPromise.then(() => {
+					//     throw new Error("No tantervihalo found.");
+					// }),
+				]);
+
+				this.setState({tantervihalo});
+			}
+
+			get term() {
+				if (this.state.term && this.state.terms) {
+					return this.state.terms.find(term => term.name === this.state.term);
+				}
+			}
+
+			async listSubjects() {
+				const subjects = await this.session.getSubjects({
+					sort: {by: 'name', order: 'asc'},
+                    filter: {
+						relevance: 'curriculum',
+						term: this.term,
+                    },
+                })
+				this.setState({subjects}, () => this.loadMore())
+            }
+
+			async loadMore() {
+				this.setState({loadingSubjects: true})
+				await this.state.subjects.loadMore()
+				this.setState({loadingSubjects: false}, this.scrollEventListener)
+            }
+
+			render() {
+				const isElective = (subject) => {
+					return this.state.tantervihalo && this.state.tantervihalo.findSubject({
+						code: subject.code,
+					}).elective;
+				}
+
+				return [
+					<form key="sessionForm" onSubmit={event => {
+						this.listSubjects()
+						event.preventDefault()
+                    }}>
+                        <select
+                            disabled={!this.state.terms}
+                            value={this.state.terms && this.state.term || ""}
+                            onChange={event => {
+								this.setState({term: event.target.value})
+
+								const params = new URLSearchParams(location.search)
+								params.set('term', event.target.value)
+								history.replaceState(history.state, document.title, `?${params}`)
+							}}
+                        >
+							{this.state.terms
+                                ? this.state.terms.map(term => (
+								    <option key={term.id}>{term.name}</option>
+							    ))
+                                : <option disabled={true} value="">Loading...</option>
+							}
+                        </select>
+                        <button disabled={!this.term}>
+                            List subjects from the curriculum
+						</button>
+                    </form>
+				].concat(!this.state.tantervihalo ? [
+					<p key="loadingCurriculumText" className="loading">Loading curriculum XLSX...</p>
+                ] : []).concat(this.state.subjects ? [
+                    <ul id="subjectsList" key="subjectsList">
+                        {this.state.subjects.loadedItems.map(subject => (
+                            <li key={subject.id}
+                                className={
+								    "subject"
+                                    + (subject.completed ? " completed" : "")
+                                    + (isElective(subject) ? " elective" : "")
+							    }
+                            >
+                                {subject.name} (<code>{subject.code}</code>)
+							</li>
+						))}
+						{this.state.subjects.loadedAll ? [] :
+							<li>
+								<button disabled={this.state.loadingSubjects}
+                                        ref={this.moreButtonRef}
+										onClick={event => {
+											this.loadMore()
+                                            event.preventDefault()
+										}}
+								>
+									More...
+								</button>
+							</li>
+						}
+                    </ul>
+                ] : []);
+            }
+
+		}
+
+		const domContainer = document.getElementById('main');
+		const root = ReactDOM.createRoot(domContainer);
+		root.render(<App/>);
+    </script>
+    <style>
+        form {
+            display: flex;
+            flex-direction: column;
+            max-width: 400px;
+        }
+
+        form > .row {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .row > select {
+            min-width: 100px;
+        }
+
+        #main {
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+        }
+
+        .subject.completed {
+            text-decoration: line-through;
+        }
+
+        .subject.elective {
+            color: gray;
+        }
+
+        #subjectsList::before {
+            content: "List of subjects:";
+            margin-left: -1em;
+        }
+
+        .loading {
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<main id="main"></main>
+
+</body>
+</html>
